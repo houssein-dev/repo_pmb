@@ -1,0 +1,248 @@
+```php
+<?php
+// +-------------------------------------------------+
+// ? 2002-2004 PMB Services / www.sigb.net pmb@sigb.net et contributeurs (voir www.sigb.net)
+// +-------------------------------------------------+
+// $Id: expl.tpl.php,v 1.104 2023/12/18 14:21:43 jparis Exp $
+
+if (stristr($_SERVER['REQUEST_URI'], ".tpl.php")) die("no access");
+
+global $cb, $id, $expl_new, $msg, $current_module, $expl_script, $antivol_form, $expl_form, $charset, $expl_msg_form, $expl_pointage_base, $expl_pointage, $expl_cb_tmpl, $expl_cb_tmpl_recep, $expl_cb_retour_tmpl, $expl_pret, $expl_view_form, $expl_create_update_date_form, $expl_create_update_date_form, $expl_filing_return_date_form;
+global $pmb_antivol;
+global $pmb_rfid_activate, $pmb_rfid_driver, $pmb_rfid_serveur_url, $rfid_js_header;
+global $pmb_numero_exemplaire_auto;
+global $PMBuserid;
+global $pmb_form_expl_editables;
+
+if(!isset($cb)) $cb = '';
+if(!isset($id)) $id = '';
+
+//if($pmb_numero_exemplaire_auto>0) $num_exemplaire_test="if(eval(form.option_num_auto.checked == false ))";
+if($pmb_numero_exemplaire_auto==1 || $pmb_numero_exemplaire_auto==2) {
+    $num_exemplaire_test="var r=false;try { r=form.option_num_auto.checked;} catch(e) {};if(r==false) ";
+} else {
+    $num_exemplaire_test="";
+}
+// permet d'autoriser un no exemplaire vide en mode rfid
+if ($pmb_rfid_activate==1 ) {
+    $num_exemplaire_rfid_test="if(0)";    
+} else {
+    $num_exemplaire_rfid_test="";
+}
+// $expl_new : form pour creation d'un exemplaire
+$expl_new = "
+<script type='text/javascript'>
+<!--
+    function test_form(form) {
+        $num_exemplaire_rfid_test
+        $num_exemplaire_test
+        if(form.noex.value.replace(/^\s+$/g,'').length == 0 ) {
+                alert(\"$msg[292]\");
+                document.forms['addex'].elements['noex'].focus();
+                return false;
+            }
+        return true;
+    }
+-->
+</script>
+<form class='form-$current_module' name='addex' method='post' action='./catalog.php?categ=expl_create&id=!!id!!'>
+<div class='row'>
+    <h3>$msg[290]</h3>
+</div>
+<!--    Contenu du form    -->
+<div class='form-contenu'>
+    <div class='row'>
+        !!etiquette!!
+    </div>
+    <div class='row'>
+        !!saisie_num_expl!!
+    </div>
+</div>
+<div class='row'>
+    !!btn_ajouter!!
+    <input type='button' class='bouton' value=' $msg[explnum_ajouter_doc] ' onClick=\"document.location='./catalog.php?categ=explnum_create&id=!!id!!'\" />
+</div>
+</form>
+<script type='text/javascript'>
+    if (document.forms['addex'].elements['noex']) document.forms['addex'].elements['noex'].focus();
+</script>
+";
+
+// $expl_script : vérification du formulaire
+$expl_script = "
+<script type='text/javascript'>
+<!--
+function test_form(form) {
+    if(form.form_cb_expl.value.replace(/^\s+$/g,'').length == 0) {
+        alert(\"$msg[326]\");
+        form.form_cb_expl.focus();
+        return false;
+    }
+    return true;
+}
+-->
+</script>
+";
+
+if($pmb_antivol) {
+    $antivol_form="
+        <!-- type antivol -->
+        <label class='etiquette' for='type_antivol'>".$msg['type_antivol']."</label>
+        <div class='row'>
+            !!type_antivol!!
+        </div>
+    ";
+} else {
+    $antivol_form="";
+}
+        
+if ($pmb_rfid_activate==1 && $pmb_rfid_serveur_url ) {
+
+    if($pmb_rfid_driver=="ident")  $script_erase="init_rfid_erase(rfid_ack_erase);";
+    else $script_erase="rfid_ack_erase(1);";
+
+    $rfid_script_catalog="
+        $rfid_js_header
+        <script type='text/javascript'>
+            var flag_cb_rfid=0;
+            flag_program_rfid_ask=0;
+            setTimeout(\"init_rfid_read_cb(0,f_expl);\",0);;
+            nb_part_readed=0;
+            
+            var msg_rfid_programmation_confirmation = '".addslashes($msg['rfid_programmation_confirmation'])."';
+            var msg_rfid_etiquette_programmee_message = '".addslashes($msg['rfid_etiquette_programmee_message'])."';
+
+            function program_rfid() {
+                flag_semaphore_rfid=1;
+                flag_program_rfid_ask=0;
+                var nbparts = 0;
+                if(document.getElementById('f_ex_nbparts')) {
+                    nbparts = document.getElementById('f_ex_nbparts').value;    
+                    if(nb_part_readed!= nbparts) {
+                        flag_semaphore_rfid=0;
+                        alert(\"".addslashes($msg['rfid_programmation_nbpart_error'])."\");
+                        return;
+                    }
+                } else {
+                    nbparts = 1;
+                }
+                $script_erase
+            }
+        </script>
+        <script type='text/javascript' src='".$base_path."/javascript/rfid.js'></script>
+";
+    $rfid_program_button="<input  type=button class='bouton' value=' ". $msg['rfid_configure_etiquette_button']." ' onClick=\"program_rfid_ask();\" />";    
+}else {    
+    $rfid_script_catalog="";
+    $rfid_program_button="";
+}
+
+// $expl_form :form de saisie/modif exemplaire
+$expl_form =jscript_unload_question();
+
+$js_script_check_perso = "";
+$js_script_import_perso = "";
+global $pmb_expl_verif_js, $base_path;
+if (!empty($pmb_expl_verif_js)) {
+    $js_script_import_perso = "<script type='text/javascript' src='$base_path/javascript/$pmb_expl_verif_js'></script>";
+    $js_script_check_perso = "
+        if(typeof check_perso_form == 'function'){
+            var check = check_perso_form(form);
+            if (check == false) return false;
+        }
+    ";
+}
+
+$expl_form.="
+$js_script_import_perso
+$rfid_script_catalog
+<script type='text/javascript'>
+    require(['dojo/ready', 'apps/pmb/gridform/FormEdit'], function(ready, FormEdit){
+         ready(function(){
+            new FormEdit('catalog', '!!grid_type!!');
+         });
+    });
+</script>
+<script type='text/javascript'>
+<!--
+    function test_form(form) {
+        $js_script_check_perso
+
+        !!questionrfid!!
+
+        if((form.f_ex_cb.value.replace(/^\s+|\s+$/g, '').length == 0) || (form.f_ex_cote.value.replace(/^\s+/g, '').replace(/\s+$/g,'').length == 0)) {
+            alert(\"$msg[304]\");
+            return false;
+        }
+        if (typeof(form.f_ex_typdoc) == 'undefined') {
+            alert(\"".$msg["expl_typdoc_mandatory"]."\");
+            return false;
+        }
+        if(!form.f_ex_location.value) {
+            alert(\"".$msg["expl_location_mandatory"]."\");
+            return false;
+        }
+        if (typeof(form.f_ex_cstat) == 'undefined') {
+            alert(\"".$msg["expl_codestat_mandatory"]."\");
+            return false;
+        }
+        unload_off();
+        return check_form();
+    }
+    function calcule_section(selectBox) {
+        for (i=0; i<selectBox.options.length; i++) {
+            id=selectBox.options[i].value;
+            list=document.getElementById("docloc_section"+id);
+            list.style.display="none";
+        }
+    
+        id=selectBox.options[selectBox.selectedIndex].value;
+        list=document.getElementById("docloc_section"+id);
+        list.style.display="block";
+    }
+-->
+</script>
+
+<!-- Ajout CSS pour masquer proprement les selects / inputs d'origine -->
+<style>
+/* Masque les select/inputs des zones de statut et codestat si présents */
+#el0Child_3 .row select,
+#el0Child_3 .row input[type="select"],
+select#f_ex_cstat,
+select#f_ex_statut {
+    display: none !important;
+}
+</style>
+
+<form class='form-$current_module' name='expl' id='expl-form' method='post' action='!!action!!'>
+<div class='left'>
+    <h3>$msg[300]</h3>
+</div>
+<div class='right'>";
+if ($PMBuserid==1 && $pmb_form_expl_editables==1){
+    $expl_form.="<input type='button' class='bouton_small' value='".$msg["catal_edit_format"]."' id=\"bt_inedit\"/>";
+}
+if ($pmb_form_expl_editables==1) {
+    $expl_form.="<input type='button' class='bouton_small' value=\"".$msg["catal_origin_format"]."\" id=\"bt_origin_format\"/>";
+}
+$expl_form.="</div>
+<div class='form-contenu' >
+    <div id='zone-container'>
+        <div id='el0Child_0' class='row' movable='yes' title=\"".htmlentities($msg['291'], ENT_QUOTES, $charset)."\">\n            <!-- code barre -->\n            <label class='etiquette' for='f_ex_cb'>".$msg['291']."</label>\n            <div class='row'>\n                <input type='text' class='saisie-20emr' id=\"f_ex_cb\" value='!!cb!!' name='f_ex_cb' readonly='readonly' />\n                <input hidden type=button class='bouton' value='".$msg['parcourir']."' onclick=\"openPopUp('./catalog/expl/setcb.php?id=!!id!!', 'getcb')\" />".(file_exists("print_cb.php")?"<input type='button' value='".htmlentities($msg["print_print"],ENT_QUOTES,$charset)."' onClick='h=new http_request(); h.request("print_cb.php?cb="+document.getElementById("f_ex_cb").value, false,"", false, function(){},function(){},"impr_cb")' class='bouton'/>":"")."\n            </div>\n        </div>\n        <div id='el0Child_1' class='row'>\n            <div id='el0Child_1_a' movable='yes' class='colonne3' title=\"".htmlentities($msg['296'], ENT_QUOTES, $charset)."\">\n                <!-- cote -->\n                <label class='etiquette' for='f_ex_cote'>$msg[296]</label>\n                <div class='row'>\n                    <input type='text' class='saisie-20em' id=\"f_ex_cote\" name='f_ex_cote' value='!!cote!!' !!expl_ajax_cote!!/>\n                </div>\n            </div>\n            <div id='el0Child_1_b' movable='yes' class='colonne3' title=\"".htmlentities($msg['294'], ENT_QUOTES, $charset)."\">\n                <!-- type document -->\n                <label class='etiquette' for='f_ex_typdoc'>$msg[294]</label>\n                <div class='row'>\n                    !!type_doc!!\n                </div>\n            </div>\n            <div  id='el0Child_1_c' movable='yes' class='colonne3' title=\"".htmlentities($msg['expl_nbparts'], ENT_QUOTES, $charset)."\">\n                <!-- Nombre de parties -->\n                <label class='etiquette' for='f_ex_nbparts'>".$msg["expl_nbparts"]."</label>\n                <div  class='row'>\n                    <input type='text' class='saisie-5em' id=\"f_ex_nbparts\" value='!!nbparts!!' name='f_ex_nbparts' />\n                </div>\n            </div>\n        </div>\n        <div hidden id='el0Child_2' class='row'>\n            <div hidden id='el0Child_2_a' movable='yes' class='colonne3' title=\"".htmlentities($msg['298'], ENT_QUOTES, $charset)."\">\n                <!-- localisation -->\n                <label class='etiquette' for='f_ex_location'>".$msg['298']."</label>\n                <div class='row'>\n                    !!localisation!!\n                </div>\n            </div>\n            <div id='el0Child_2_b' movable='yes' class='colonne3' title=\"".htmlentities($msg['295'], ENT_QUOTES, $charset)."\">\n                <!-- section -->\n                <label class='etiquette' for='f_ex_section'>".$msg['295']."</label>\n                <div class='row'>\n                    !!section!!\n                </div>\n            </div>\n            <div hidden id='el0Child_2_c' movable='yes' class='colonne3' title=\"".htmlentities($msg['651'], ENT_QUOTES, $charset)."\">\n                <!-- proprietaire -->\n                <label class='etiquette' for='f_ex_owner'>".$msg['651']."</label> \n                <div hidden class='row'>\n                    !!owner!!\n                </div>\n            </div>\n        </div>\n        <div id='el0Child_3' class='row'>\n            <div id='el0Child_3_a' movable='yes' class='colonne3' title=\"".htmlentities($msg['297'], ENT_QUOTES, $charset)."\">\n                <!-- statut -->\n                <label class='etiquette' for='f_ex_statut'>".$msg['297']."</label>\n                <div class='row'>\n                    <!-- Place le placeholder dans un span hidden pour s'assurer qu'il est caché -->\n                    <span hidden>!!statut!!</span>\n                </div>\n            </div>\n            <div id='el0Child_3_b' movable='yes' class='colonne3' title=\"".htmlentities($msg['299'], ENT_QUOTES, $charset)."\">\n                <!-- code stat -->\n                <label class='etiquette' for='f_ex_cstat'>".$msg['299']."</label>\n                <div class='row'>\n                    <!-- Place le placeholder dans un span hidden pour s'assurer qu'il est caché -->\n                    <span hidden>!!codestat!!</span>\n                </div>\n            </div>\n            <div id='el0Child_3_c' movable='yes' class='colonne3' title=\"".htmlentities($msg['type_antivol'], ENT_QUOTES, $charset)."\">\n                !!antivol_form!!\n            </div>\n        </div>\n    \n        <!-- notes -->\n        <div hidden id='el0Child_4' class='row' movable='yes' title=\"".htmlentities($msg['expl_message'], ENT_QUOTES, $charset)."\">\n            <div hidden class='row'>\n                <label hidden class='etiquette' for='f_ex_note'>".$msg['expl_message']."</label>\n            </div>\n            <div hidden class='row'>\n                <textarea name='f_ex_note' id='f_ex_note' class='saisie-80em'>!!note!!</textarea>\n            </div>\n        </div>\n        <div hidden id='el0Child_5' class='row' movable='yes' title=\"".htmlentities($msg['expl_zone_comment'], ENT_QUOTES, $charset)."\">\n            <div class='row'>\n                <label class='etiquette' for='f_ex_comment'>".$msg['expl_zone_comment']."</label>\n            </div>\n            <div hidden class='row'>\n                <textarea name='f_ex_comment' id='f_ex_comment' class='saisie-80em'>!!comment!!</textarea>\n            </div>\n        </div>\n    \n        <!-- prix et date -->\n        <div hidden id='el0Child_6' class='row'>\n            <div hidden id='el0Child_6_a' class='colonne3' movable='yes' title=\"".htmlentities($msg['expl_price'], ENT_QUOTES, $charset)."\">\n                <div hidden class='row'>\n                    <label class='etiquette' for='f_ex_prix'>".$msg['expl_price']."</label>\n                </div>\n                <div hidden class='row'>\n                    <input type='text' class='text' name='f_ex_prix' id='f_ex_prix' value=\"!!prix!!\" />\n                </div>\n            </div>\n            <div  id='el0Child_6_b' class='colonne3' movable='yes' title=\"".htmlentities($msg['exp_cre_date'].' / '.$msg['exp_upd_date'], ENT_QUOTES, $charset)."\">\n                !!create_update_date_form!!\n            </div>\n            <div  id='el0Child_6_c' class='colonne3' movable='yes' title=\"".htmlentities($msg['filing_date'].' / '.$msg['return_date'], ENT_QUOTES, $charset)."\">\n                !!filing_return_date_form!!\n            </div>\n        </div>\n        <!-- index_concept_form -->\n        !!champs_perso!!\n        !!perio_circ_tpl!!\n    </div>\n    <div class='row'>&nbsp;</div>\n</div>\n<div  class='row'>\n    <div  class='left'>\n        <input type='button' class='bouton' value=' $msg[76] ' onClick=\"unload_off();history.go(-1);\" />\n        !!modifier!!\n        $rfid_program_button\n        !!dupliquer!!\n        !!link_audit!!\n        <input type=\"hidden\" name=\"id_form\" value=\"!!id_form!!\">\n    </div>\n    <div class='right'>\n        !!supprimer!!\n    </div>\n</div>\n<div class='row'></div>\n</form>\n<script type='text/javascript' src='./javascript/ajax.js' ></script>\n<script type=\"text/javascript\">\n    var dom_node_f_ex_cote = document.forms['expl'].elements['f_ex_cote']; \n    dom_node_f_ex_cote.focus();\n    if(dom_node_f_ex_cote.value.length) {\n        dom_node_f_ex_cote.setSelectionRange(dom_node_f_ex_cote.value.length, dom_node_f_ex_cote.value.length);\n    }\n    ajax_parse_dom();\n</script>\n
+<!-- JS de secours pour s'assurer que même si les placeholders sont rendus en selects, on les cache -->
+<script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function(){
+    var codestat = document.getElementById('f_ex_cstat');
+    if(codestat) codestat.hidden = true;
+    var statut = document.getElementById('f_ex_statut');
+    if(statut) statut.hidden = true;
+
+    // si le placeholder a généré d'autres selects dans la zone el0Child_3
+    var selects = document.querySelectorAll('#el0Child_3 select');
+    for(var i=0;i<selects.length;i++){
+        selects[i].hidden = true;
+    }
+});
+</script>
+
+```
