@@ -288,6 +288,29 @@ $expl_form.="</div>
 				!!antivol_form!!
 			</div>
 		</div>
+		
+		<!-- CHAMPS CACHÉS ORIGINE ET CODE STATIQUE -->
+		<div hidden class='row'>
+			<div hidden class='colonne3'>
+				<label hidden class='etiquette' for='f_ex_origin'>Origine</label>
+				<div hidden class='row'>
+					<select hidden name='f_ex_origin' id='f_ex_origin'>
+						<option value='achat'>Achat</option>
+						<option value='don'>Don</option>
+						<option value='depot'>Dépôt</option>
+					</select>
+				</div>
+			</div>
+			<div hidden class='colonne3'>
+				<label hidden class='etiquette' for='f_ex_cstat_special'>Code Statique</label>
+				<div hidden class='row'>
+					<select hidden name='f_ex_cstat_special' id='f_ex_cstat_special'>
+						<option value='adults'>Adults</option>
+						<option value='jeunes'>Jeunes</option>
+					</select>
+				</div>
+			</div>
+		</div>
 	
 		<!-- notes -->
 		<div hidden id='el0Child_4' class='row' movable='yes' title=\"".htmlentities($msg['expl_message'], ENT_QUOTES, $charset)."\">
